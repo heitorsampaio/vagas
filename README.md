@@ -2,9 +2,58 @@
 # challenge
 
 # Start Project 
-  `python3 manage.py createsuperuser`
-    `python3 manage.py migrate`
-      `python3 manage.py runserver`
+
+```
+docker-compose up --build
+
+```
+
+
+### Token
+
+```
+POST /api-token-auth/
+
+json
+{
+    "username": "username",
+    "password": "password"
+}
+```
+
+### Usuários
+
+Para gerenciar usuários no sistema as rotas utilizadas são:
+
+```
+GET /api/users
+POST /api/users
+GET /api/users/:id
+PUT /api/users/:id
+DELETE /api/users/:id
+```
+
+### Empréstimos
+
+```
+GET /api/contracts
+POST /api/contracts
+GET /api/contracts/:id
+PUT /api/contracts/:id
+DELETE /api/contracts/:id
+```
+
+### Pagamentos
+
+Para gerenciar os pagamentos no sistema as rotas utilizadas são:
+
+```
+GET /api/payments
+POST /api/payments
+GET /api/payments/:id
+PUT /api/payments/:id
+DELETE /api/payments/:id
+```
   
 
 Using Django, create a simple API that allows users to manage their loans contracts.
