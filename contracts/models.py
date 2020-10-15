@@ -1,55 +1,91 @@
+from datetime import datetime
+from decimal import Decimal
+
+from django.utils import timezone
 from django.db import models
-from datetime import date as Date
-import pendulum
+from users.models import User
 from django.db import models
 from django.core.validators import MinValueValidator, MaxValueValidator
-from core.models import BaseModel
+import uuid
 
-# Create your models here.
-class Contract(BaseModel):
-    client = models.ForeignKey('users.User',
+
+class Contract(models.Model):
+    id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)
+    client = models.ForeignKey(User,
                                related_name='contracts',
                                on_delete=models.CASCADE,
                                help_text='Contract User')
-    bank = models.TextField(help_text='Contract Bank')
-    amount = models.FloatField(
-        help_text='Contract Price',
-        validators=[MinValueValidator(limit_value=1)])
-    interest_rate = models.FloatField(
-        help_text='Interest Rate',
-        validators=[MinValueValidator(limit_value=0), MaxValueValidator(limit_value=1)]
-    )
+    bank = models.TextField(verbose_name='Contract Bank',
+                            help_text='Information about bank')
+    amount = models.DecimalField(default=0.00,
+                                 max_digits=10,
+                                 decimal_places=2,
+                                 help_text='Contract Price',
+                                 validators=[MinValueValidator(limit_value=1)])
+    interest_rate = models.DecimalField(default=0.000,
+                                        max_digits=6,
+                                        decimal_places=3,
+                                        help_text='Interest Rate',
+                                        validators=[MinValueValidator(
+                                            limit_value=0), MaxValueValidator(limit_value=1)]
+                                        )
     submission_date = models.DateField(
+        auto_now_add=True,
+        editable=False,
         help_text='Submission Date'
     )
 
-    ip_address = models.GenericIPAddressField(help_text='Ip Adress of submission')
+    ip_address = models.GenericIPAddressField(
+        verbose_name='Ip address', help_text='Ip Adress of submission')
 
     class Meta:
-        ordering = ['client_id']
+        ordering = ['id']
+
+    def __str__(self):
+        """
+        Formatar valor
+        """
+        return f'R$ {self.amout}, {self.bank}'
+
+    def get_time(self):
+        """
+        Return contract time
+        """
+        today = datetime.datetime.now(tz=timezone.utc)
+        contract_date = self.submission_date
+
+        return (today - contract_date).days
 
     @property
-    def owner(self):
-        return self.client
+    def balance(self):
+        """
+        Return balance of the contract
+        """
+        return round(self.amount + self.iof - self.paid_value, 2)
 
-    # noinspection PyTypeChecker,PyUnresolvedReferences
     @property
-    def amount_due(self):
-        total_paid = 0.0
-        for payment in self.payments.all():
-            total_paid += payment.value
-        return self.updated_value - total_paid
+    def amout(self):
+        """
+        Calculate the total amount
+        """
+        value = round(self.interest_rate / 30, 3)
+        time = self.get_time()
 
-    # noinspection PyTypeChecker
+        return self.amount + ((1 + value) ** time)
+
     @property
-    def updated_value(self):
-        today = pendulum.now()
-        months_diff = today.diff(self.get_start_date()).in_months()
-        return self.amount + (self.amount * self.interest_rate * months_diff)
+    def iof(self):
+        """
+        Calculate IOF
+        """
+        aliquota = self.amount * Decimal(0.38 / 100.0)
+        aliquota_per_day = self.get_time() * Decimal(0.0082 / 100.0) * self.amount
 
-    # noinspection PyTypeChecker
-    def get_start_date(self):
-        isoformat = self.submission_date
-        if isinstance(self.submission_date, Date):
-            isoformat = self.submission_date.isoformat()
-        return pendulum.from_format(isoformat, 'YYYY-MM-DD')
+        return round(aliquota + aliquota_per_day, 2)
+
+    @property
+    def paid(self):
+        """
+        Return paid value
+        """
+        return self.payments.aggregate(sum('amount')).get('amount__sum') or Decimal(0.00)

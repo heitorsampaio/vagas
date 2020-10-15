@@ -1,16 +1,27 @@
 from rest_framework import serializers
 
-from core.serializer_fields import UUIDRelatedField
 from payments.models import Payment
 from contracts.models import Contract
+from contracts.serializers import ContractSerializer
 
 
 class PaymentSerializer(serializers.ModelSerializer):
-    contract_id = UUIDRelatedField(Contract, help_text='Payment Contract')
 
     class Meta:
         model = Payment
-        fields = ['id', 'contract_id', 'value', 'date']
+        fields = ['contract', 'value', 'date']
         extra_kwargs = {
-            'id': {'read_only': True}
+            'date': {'read_only': True}
         }
+
+    def validate_contract(self, value: Contract):
+        """
+        Validate Contract
+        """
+
+        re = self.context.get('request')
+
+        if value.client != re.user:
+            raise serializers.ValidationError(
+                'You don\'t have permission to access this contract')
+        return value

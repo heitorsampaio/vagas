@@ -1,23 +1,17 @@
-from django.shortcuts import render
-from rest_framework.viewsets import ModelViewSet
-from core.permissions import IsAuthenticatedOrCreate, IsOwner
-from users.serializers import (UserCreateSerializer, UserListSerializer, UserUpdateSerializer, User)
+from django.db import models
+from django.contrib.auth.models import AbstractUser
+import uuid
 
 
-# Create your views here.
-class UserViewSet(ModelViewSet):
-    queryset = User.objects.all()
-    serializer_class = UserListSerializer
-    permission_classes = [IsAuthenticatedOrCreate, IsOwner]
+class User(AbstractUser):
+    id = models.UUIDField(default=uuid.uuid4, editable=False, primary_key=True, serialize=False)
+    name = models.CharField("Name", max_length=255,
+                            help_text="Fullname of the Client",
+                            default=None)
+    cpf = models.CharField("CPF", unique=True, max_length=14,
+                           help_text="Valid CPF of the Client")
+    email = models.EmailField("Email", unique=True,
+                              help_text="Email of the Client")
 
-    def get_serializer_class(self):
-        update_actions = (
-            'update',
-            'partial_update',
-        )
-
-        if self.action == 'create':
-            return UserCreateSerializer
-        elif self.action in update_actions:
-            return UserUpdateSerializer
-        return self.serializer_class
+    class Meta:
+        ordering = ['id']
